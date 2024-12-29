@@ -66,8 +66,9 @@ def process_image(image_path):
     images = [image, morph_open, morph_close, kmeans_rgb_result, kmeans_lbp_result]
     display_images(titles, images)
 
-# Replace 'path_to_image' with actual file paths
-image_paths = ['image_a.jpg', 'image_b.jpg', 'image_c.jpg', 'image_d.jpg', 'image_e.jpg', 'image_f.jpg']
+# Process all images
+image_folder = 'THE3_Images/'
+image_paths = [image_folder + str(i) + '.png' for i in range(1,7)]
 for path in image_paths:
     process_image(path)
 
