@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 from matplotlib import pyplot as plt
 from skimage.feature import local_binary_pattern
-from sklearn.cluster import KMeans
+#from sklearn.cluster import KMeans
 
 #######################################
 ####//////IMAGE READ-WRITE\\\\\\\\#####
@@ -72,8 +72,28 @@ def ELBP(src, radius, neighbors):
 
 #why Uniform: https://stackoverflow.com/questions/32105338/uniform-lbp-with-scikit-image-local-binary-pattern-function
 # skimage LBP function which works faster
+'''
+Method to determine the pattern:
+
+        ``default``
+            Original local binary pattern which is grayscale invariant but not
+            rotation invariant.
+        ``ror``
+            Extension of default pattern which is grayscale invariant and
+            rotation invariant.
+        ``uniform``
+            Uniform pattern which is grayscale invariant and rotation
+            invariant, offering finer quantization of the angular space.
+            For details, see [1]_.
+        ``nri_uniform``
+            Variant of uniform pattern which is grayscale invariant but not
+            rotation invariant. For details, see [2]_ and [3]_.
+        ``var``
+            Variance of local image texture (related to contrast)
+            which is rotation invariant but not grayscale invariant.
+'''
 def ELBP_skimage(src, radius, neighbors):
-    lbp = local_binary_pattern(src, neighbors, radius, method='uniform')
+    lbp = local_binary_pattern(src, neighbors, radius, method='default')
     return lbp
 
 #Morphological operations
@@ -142,11 +162,13 @@ def kmeans_rgb(image, k=2):
     return kmeans
 
 # KMeans using LBP Features
-def kmeans_lbp(image, k=2, radius=1, n_points=8):
+def kmeans_lbp(image, k=2, radius=2, n_points=16):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     red = get_channel(image, 'red')
     lbp= ELBP_skimage(gray, radius, n_points)
-    lbp_flattened = lbp.reshape(-1, 1)
+    # Normalize the LBP values to the range [0, 256]
+    lbp_normalized = cv2.normalize(lbp, None, alpha=0, beta=256, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+    lbp_flattened = lbp_normalized.reshape(-1, 1)
     #kmeans = KMeans(n_clusters=k, random_state=0).fit(lbp_flattened)
     kmeans = kmeans_clustering(lbp_flattened, k)
     segmented = kmeans.reshape(gray.shape)
