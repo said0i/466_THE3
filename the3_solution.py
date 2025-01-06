@@ -34,11 +34,9 @@ def create_necessary_folders():
 #######################################
 #Apply Kmeans clustering to an image
 def kmeans_clustering(image, k=2):
-    # reshape the image to a 2D array of pixels and 3 color values (RGB)
-    Z = image.reshape((-1,3))
     
     # convert to np.float32
-    Z = np.float32(Z)
+    Z = np.float32(image)
     
     # define criteria, number of clusters(K) and apply kmeans()
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 10, 1.0)
@@ -48,9 +46,8 @@ def kmeans_clustering(image, k=2):
     # Now convert back into uint8, and make original image
     center = np.uint8(center)
     res = center[label.flatten()]
-    res2 = res.reshape((image.shape))
     
-    return res2
+    return res
 # extended LBP
 def ELBP(src, radius, neighbors):
     neighbors = max(min(neighbors, 31), 1)
@@ -161,11 +158,12 @@ def display_images(titles, images):
 
 # KMeans using RGB Features
 def kmeans_rgb(image, k=2):
-    #pixels = image.reshape(-1, 3)
+    pixels = image.reshape(-1, 3)
     #kmeans = KMeans(n_clusters=k, random_state=0).fit(image)
-    kmeans = kmeans_clustering(image, k)
+    kmeans = kmeans_clustering(pixels, k)
     #segmented = kmeans.labels_.reshape(image.shape[:2])
-    return kmeans
+    res = kmeans.reshape(image.shape)
+    return res
 
 # KMeans using LBP Features (skimage)
 def kmeans_lbp_skimage(image, k=2, radius=2, n_points=16):
@@ -230,7 +228,7 @@ def image1_and_image2(img1, img2):
     write_image(final_1, 'image1/1_morph_gradient.png')
 
     # KMeans Clustering using RGB Features
-    image1_kmeans = kmeans_clustering(img1, 2)
+    image1_kmeans = kmeans_rgb(img1, 2)
     write_image(image1_kmeans, 'image1/1_kmeans_rgb.png')
 
     # KMeans Clustering using Local Binary Pattern (LBP) Features
@@ -247,7 +245,7 @@ def image1_and_image2(img1, img2):
     write_image(morph_2, 'image2/2_morph_gradient.png')
 
     # KMeans Clustering using RGB Features
-    image2_kmeans = kmeans_clustering(img2, 2)
+    image2_kmeans = kmeans_rgb(img2, 2)
     write_image(image2_kmeans, 'image2/2_kmeans_rgb.png')
 
     # KMeans Clustering using Local Binary Pattern (LBP) Features
@@ -263,8 +261,8 @@ def image3_and_image4(img3 ,img4):
     write_image(image3_gradient, 'image3/3_gradient.png')
 
     # KMeans Clustering using RGB Features
-    image3_kmeans = kmeans_clustering(img3, 3)
-    write_image(image3_kmeans, 'image3/3_kmeans.png')
+    image3_kmeans = kmeans_rgb(img3, 3)
+    write_image(image3_kmeans, 'image3/3_kmeans_rgb.png')
 
     # KMeans Clustering using Local Binary Pattern (LBP) Features
     image3_kmeans_lbp = kmeans_lbp(img3, 2, 2, 8)
@@ -277,13 +275,57 @@ def image3_and_image4(img3 ,img4):
     write_image(image4_gradient, 'image4/4_gradient.png')
 
     # KMeans Clustering using RGB Features
-    image4_kmeans = kmeans_clustering(img4, 2)
-    write_image(image4_kmeans, 'image4/4_kmeans.png')
+    image4_kmeans = kmeans_rgb(img4, 2)
+    write_image(image4_kmeans, 'image4/4_kmeans_rgb.png')
 
     # KMeans Clustering using Local Binary Pattern (LBP) Features
     image4_kmeans_lbp = kmeans_lbp(img4, 2, 2, 16)
     write_image(image4_kmeans_lbp, 'image4/4_kmeans_lbp.png')
 
+def image5_and_image6(img5, img6):
+    #Image5
+    gray = cv2.cvtColor(img5, cv2.COLOR_BGR2GRAY)
+    red = get_channel(img5, 'red')
+    
+   
+    # Image 5
+    # Gray-scale Morphology
+    image5_blackhat = grayscale_morphology(img5, cv2.MORPH_BLACKHAT, 11)
+    write_image(image5_blackhat, 'image5/5_blackhat.png')
+    image5_gradient = grayscale_morphology(img5, cv2.MORPH_GRADIENT, 3)
+    write_image(image5_gradient, 'image5/5_gradient.png')
+
+    # Apply KMeans Clustering with RGB
+    kmeans_rgb_result = kmeans_rgb(img5, k=2)
+    #Apply postprocessing to make it black and white
+    gray_image = cv2.cvtColor(kmeans_rgb_result, cv2.COLOR_BGR2GRAY)
+    _, bw_image = cv2.threshold(gray_image, 127, 255, cv2.THRESH_BINARY_INV)
+
+    write_image(bw_image, 'image5/5_kmeans_rgb_threshholded.png')
+    #write_image(kmeans_rgb_result, 'image5/5_kmeans_rgb.png')
+    
+    # Apply KMeans with LBP
+    
+    kmeans_lbp_result = kmeans_lbp_skimage(img5, k=2, radius=2, n_points=16)
+    write_image(kmeans_lbp_result, 'image5/5_kmeans_lbp.png')
+    # Image 6
+    # Gray-scale Morphology
+    image6_blackhat = grayscale_morphology(img6, cv2.MORPH_BLACKHAT, 11)
+    write_image(image6_blackhat, 'image6/6_blackhat.png')
+    image6_gradient = grayscale_morphology(img6, cv2.MORPH_GRADIENT, 3)
+    write_image(image6_gradient, 'image6/6_gradient.png')
+
+    # KMeans Clustering using RGB Features
+    image6_kmeans = kmeans_clustering(img6, k=6)
+    write_image(image6_kmeans, 'image6/6_kmeans_rgb_1.png')
+     # Apply KMeans with RGB
+    kmeans_rgb_result = kmeans_rgb(img6, k=2)
+    write_image(kmeans_rgb_result, 'image6/6_kmeans_rgb_2.png')
+
+
+    # KMeans Clustering using Local Binary Pattern (LBP) Features
+    image6_kmeans_lbp = kmeans_lbp_skimage(img6,k=2, radius=2, n_points=16)
+    write_image(image6_kmeans_lbp, 'image6/6_kmeans_lbp.png')
 
 #MAIN
 if __name__ == '__main__':
@@ -299,10 +341,10 @@ if __name__ == '__main__':
     img_6 = read_image('6.png')
 
     # Images 1 and 2
-    #image1_and_image2(img_1, img_2)
+    image1_and_image2(img_1, img_2)
 
     # Images 3 and 4
-    image3_and_image4(img_3, img_4)
+    #image3_and_image4(img_3, img_4)
 
     # Images 5 and 6
     #image5_and_image6(img_5, img_6)
