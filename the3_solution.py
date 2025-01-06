@@ -49,6 +49,7 @@ def kmeans_clustering(image, k=2):
     
     return res
 # extended LBP
+# Taken from: https://www.bytefish.de/blog/local_binary_patterns.html
 def ELBP(src, radius, neighbors):
     neighbors = max(min(neighbors, 31), 1)
     rows, cols = src.shape
@@ -97,8 +98,11 @@ Method to determine the pattern:
             Variance of local image texture (related to contrast)
             which is rotation invariant but not grayscale invariant.
 '''
-def ELBP_skimage(src, radius, neighbors):
-    lbp = local_binary_pattern(src, neighbors, radius, method='default')
+def ELBP_skimage(src, radius, neighbors,method=None):
+    if method is None:
+        lbp = local_binary_pattern(src, neighbors, radius)
+    else:
+        lbp = local_binary_pattern(src, neighbors, radius, method=method)
     return lbp
 
 #Morphological operations
@@ -155,7 +159,12 @@ def display_images(titles, images):
     plt.tight_layout()
     plt.show()
 
-
+#kMeans using GrayScale values
+def kmeans_gray(image, k=2):
+    pixels = image.reshape(-1, 1)
+    kmeans = kmeans_clustering(pixels, k)
+    res = kmeans.reshape(image.shape)
+    return res
 # KMeans using RGB Features
 def kmeans_rgb(image, k=2):
     pixels = image.reshape(-1, 3)
@@ -166,10 +175,13 @@ def kmeans_rgb(image, k=2):
     return res
 
 # KMeans using LBP Features (skimage)
-def kmeans_lbp_skimage(image, k=2, radius=2, n_points=16):
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    red = get_channel(image, 'red')
-    lbp= ELBP_skimage(gray, radius, n_points)
+def kmeans_lbp_skimage(image, k=2, radius=2, n_points=16,method=None):
+    #check if the image is gray or not
+    gray = image
+    if len(image.shape) == 3:
+        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        red = get_channel(image, 'red')
+    lbp= ELBP_skimage(gray, radius, n_points,method)
     # Normalize the LBP values to the range [0, 256]
     lbp_normalized = cv2.normalize(lbp, None, alpha=0, beta=256, norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_8U)
     lbp_flattened = lbp_normalized.reshape(-1, 1)
@@ -222,7 +234,7 @@ def image1_and_image2(img1, img2):
     # Gray-scale Morphology
     gray_1 = cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY)
     # Apply Morphological Gradient
-    grad_1 = grayscale_morphology(gray_1, cv2.MORPH_GRADIENT, 13)
+    grad_1 = grayscale_morphology(gray_1, "erosion", 3)
     # Postprocessing, thresholding
     _, final_1 = cv2.threshold(grad_1, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     write_image(final_1, 'image1/1_morph_gradient.png')
@@ -289,12 +301,20 @@ def image5_and_image6(img5, img6):
     
    
     # Image 5
+    gray = cv2.cvtColor(img5, cv2.COLOR_BGR2GRAY)
     # Gray-scale Morphology
-    image5_blackhat = grayscale_morphology(img5, cv2.MORPH_BLACKHAT, 11)
+    image5_blackhat = grayscale_morphology(gray, cv2.MORPH_BLACKHAT, 11)
     write_image(image5_blackhat, 'image5/5_blackhat.png')
-    image5_gradient = grayscale_morphology(img5, cv2.MORPH_GRADIENT, 3)
+    image5_gradient = grayscale_morphology(gray, cv2.MORPH_GRADIENT, 2)
     write_image(image5_gradient, 'image5/5_gradient.png')
-
+    # Apply lbp to gradient image
+    image5_gradient_lbp = kmeans_lbp_skimage(image5_gradient, k=2, radius=2, n_points=16)
+    write_image(image5_gradient_lbp, 'image5/5_gradient_lbp.png')
+    #apply postprocessing to make it black and white
+    
+    gradient_kmean= kmeans_gray(image5_gradient, k=2)
+    _,thresholded = cv2.threshold(gradient_kmean, 50, 255, cv2.THRESH_BINARY)
+    write_image(thresholded, 'image5/5_gradient_kmeans.png')
     # Apply KMeans Clustering with RGB
     kmeans_rgb_result = kmeans_rgb(img5, k=2)
     #Apply postprocessing to make it black and white
@@ -305,26 +325,70 @@ def image5_and_image6(img5, img6):
     #write_image(kmeans_rgb_result, 'image5/5_kmeans_rgb.png')
     
     # Apply KMeans with LBP
-    
+    kmeans_lbp_result = kmeans_lbp_skimage(img5, k=2, radius=2, n_points=16,method='uniform')
+    write_image(kmeans_lbp_result, 'image5/5_kmeans_lbp_uniform.png')
+    kmeans_lbp_result = kmeans_lbp_skimage(img5, k=2, radius=2, n_points=16,method='ror')
+    write_image(kmeans_lbp_result, 'image5/5_kmeans_lbp_ror.png')
+    kmeans_lbp_result = kmeans_lbp_skimage(img5, k=2, radius=2, n_points=16,method='nri_uniform')
+    write_image(kmeans_lbp_result, 'image5/5_kmeans_lbp_nriUniform.png')
+    kmeans_lbp_result = kmeans_lbp_skimage(img5, k=2, radius=2, n_points=16,method='var')
+    write_image(kmeans_lbp_result, 'image5/5_kmeans_lbp_var.png')
     kmeans_lbp_result = kmeans_lbp_skimage(img5, k=2, radius=2, n_points=16)
-    write_image(kmeans_lbp_result, 'image5/5_kmeans_lbp.png')
+    write_image(kmeans_lbp_result, 'image5/5_kmeans_lbp_defualt.png')
+    
+    
     # Image 6
+    #blur image
+    #img6 = cv2.medianBlur(img6, 3)
+    img6 = cv2.GaussianBlur(img6, (7,7),sigmaX=100)
+    write_image(img6, 'image6/6_blurred.png')
+    red = get_channel(img6, 'red')
+    green = get_channel(img6, 'green')
+    blue = get_channel(img6, 'blue')
+    gray = cv2.cvtColor(img6, cv2.COLOR_BGR2GRAY)
+    write_image(blue, 'image6/6_blue.png')
+    write_image(green, 'image6/6_green.png')
+    write_image(red, 'image6/6_red.png')
+    write_image(gray, 'image6/6_gray.png')
     # Gray-scale Morphology
-    image6_blackhat = grayscale_morphology(img6, cv2.MORPH_BLACKHAT, 11)
+    image6_gradient = grayscale_morphology(gray, cv2.MORPH_GRADIENT, 3)
+    write_image(image6_gradient, 'image6/6_gradient.png')
+    #apply postprocessing to make it black and white
+    gradient_kmean= kmeans_gray(image6_gradient, k=2)
+    write_image(gradient_kmean, 'image6/6_gradient_kmeans.png')
+    _,thresholded = cv2.threshold(gradient_kmean, 20, 255, cv2.THRESH_BINARY)
+    write_image(thresholded, 'image6/6_gradient_kmeans_threshholded.png')
+    
+    image6_erison = grayscale_morphology(gray, 'erosion', 11)
+    write_image(image6_erison, 'image6/6_erison.png')
+    image6_dilation = grayscale_morphology(gray, 'dilation', 11)
+    write_image(image6_dilation, 'image6/6_dilation.png')
+    image6_opening = grayscale_morphology(gray, cv2.MORPH_OPEN, 11)
+    write_image(image6_opening, 'image6/6_opening.png')
+    image6_closing = grayscale_morphology(gray, cv2.MORPH_CLOSE, 11)
+    write_image(image6_closing, 'image6/6_closing.png')
+    image6_blackhat = grayscale_morphology(gray, cv2.MORPH_BLACKHAT, 11)
     write_image(image6_blackhat, 'image6/6_blackhat.png')
-    image6_gradient = grayscale_morphology(img6, cv2.MORPH_GRADIENT, 3)
+    image6_gradient = grayscale_morphology(gray, cv2.MORPH_GRADIENT, 3)
     write_image(image6_gradient, 'image6/6_gradient.png')
 
     # KMeans Clustering using RGB Features
-    image6_kmeans = kmeans_clustering(img6, k=6)
-    write_image(image6_kmeans, 'image6/6_kmeans_rgb_1.png')
-     # Apply KMeans with RGB
-    kmeans_rgb_result = kmeans_rgb(img6, k=2)
-    write_image(kmeans_rgb_result, 'image6/6_kmeans_rgb_2.png')
+    kmeans_rgb_result = kmeans_rgb(img6, k=5)
+    write_image(kmeans_rgb_result, 'image6/6_kmeans_rgb.png')
 
 
     # KMeans Clustering using Local Binary Pattern (LBP) Features
-    image6_kmeans_lbp = kmeans_lbp_skimage(img6,k=2, radius=2, n_points=16)
+    kmeans_lbp_result = kmeans_lbp_skimage(img6, k=6, radius=3, n_points=16,method='uniform')
+    write_image(kmeans_lbp_result, 'image6/6_kmeans_lbp_uniform.png')
+    kmeans_lbp_result = kmeans_lbp_skimage(img6, k=6, radius=3, n_points=16,method='ror')
+    write_image(kmeans_lbp_result, 'image6/6_kmeans_lbp_ror.png')
+    kmeans_lbp_result = kmeans_lbp_skimage(img6, k=6, radius=3, n_points=16,method='nri_uniform')
+    write_image(kmeans_lbp_result, 'image6/6_kmeans_lbp_nriUniform.png')
+    kmeans_lbp_result = kmeans_lbp_skimage(img6, k=6, radius=3, n_points=16,method='var')
+    write_image(kmeans_lbp_result, 'image6/6_kmeans_lbp_var.png')
+    kmeans_lbp_result = kmeans_lbp_skimage(img6, k=6, radius=3, n_points=32)
+    write_image(kmeans_lbp_result, 'image6/6_kmeans_lbp_defualt.png')
+    image6_kmeans_lbp = kmeans_lbp_skimage(img6,k=6, radius=2, n_points=16)
     write_image(image6_kmeans_lbp, 'image6/6_kmeans_lbp.png')
 
 #MAIN
@@ -341,13 +405,13 @@ if __name__ == '__main__':
     img_6 = read_image('6.png')
 
     # Images 1 and 2
-    image1_and_image2(img_1, img_2)
+    #image1_and_image2(img_1, img_2)
 
     # Images 3 and 4
     #image3_and_image4(img_3, img_4)
 
     # Images 5 and 6
-    #image5_and_image6(img_5, img_6)
+    image5_and_image6(img_5, img_6)
     '''
     #Image5
     img_5 = read_image('5.png')
